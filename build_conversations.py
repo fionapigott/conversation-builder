@@ -1,3 +1,7 @@
+# Authoer: Fiona Pigott
+# Date: July 13, 2016
+# Free to use, no guarantees of anything
+
 import pymongo
 import fileinput
 import ujson
@@ -216,12 +220,12 @@ for item,shard in list(shards.items()):
             try:
                 # if it is a Tweet in our dataset
                 tweet_dict = id_to_tweet[tweet["tweet_id"]]
-                hydrated_conversation.append({"screen_name": fg.screen_name(tweet_dict, format), #tweet_dict["actor"]["preferredUsername"].lower(),
-                                              "user_id": fg.user_id(tweet_dict, format), #tweet_dict["actor"]["id"].split(":")[-1],
+                hydrated_conversation.append({"screen_name": fg.screen_name(tweet_dict, format), 
+                                              "user_id": fg.user_id(tweet_dict, format), 
                                               "missing": False,
                                               "depth": tweet["depth"],
                                               "in_reply_to": tweet["in_reply_to"],
-                                              "id": int(tweet["tweet_id"]), #int(tweet_dict["id"].split(":")[-1]),
+                                              "id": int(tweet["tweet_id"]), 
                                               "tweet": tweet_dict})
             except KeyError:
                 # if it's not a Tweet in our dataset
