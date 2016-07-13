@@ -65,5 +65,10 @@ If you don't have Python 3, install that first. Among other things, Python 3's d
 Then:
 * `pip install ujson`
 * `pip install pymongo`
-(If you're not working in a PYthon virtual environment, you may have to `sudo pip install`)
+(If you're not working in a Python virtual environment, you may have to `sudo pip install`)
+
+The result of `pip freeze` for me is:
+    pymongo==3.3.0
+    ujson==1.35
+
 
