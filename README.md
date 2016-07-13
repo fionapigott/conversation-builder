@@ -4,8 +4,8 @@
 Python script to assemble individual Tweets from a public Twitter stream (either Gnip activity-streams format or original Twitter API format) into conversation threads, using the "in reply to" fields of the tweet payload.
 
 **Input**: Stream of JSON-formatted Tweet payloads, one record per line.  
-Input (optional): A CSV of brand handles and user ids, one handle/id pair per line, no quotes. E.g.: notFromShrek,2382763597)   
-Output: Stream of JSON-formatted *conversation* payloads, one record per line. Ordering in the output will be pretty much random.  
+**Input** (optional): A CSV of brand handles and user ids, one handle/id pair per line, no quotes. E.g.: notFromShrek,2382763597)   
+**Output**: Stream of JSON-formatted *conversation* payloads, one record per line. Ordering in the output will be pretty much random.  
 
 # Output format:
 
@@ -19,28 +19,28 @@ Output might look like this, when my provided --brand_info was:
 delta,5920532  
 deltaassist,137460929  
 
-`
-{
-  "nonbrands_tweeting": [{"screen_name": < screen name 1 >,"user_id": < user id 1 >}, {"screen_name": < screen name 2 >,"user_id": < user id 2 >}],  
-  "nonbrands_mentioned": [{"screen_name": < screen name 1 >,"user_id": < user id 1 >}], # users who are mentioned in the thread, but are not brands  
-  "time_to_first_response": "00:57:38", # H:M:S that it took for the first person to respond to this Tweet   
-  "brands_mentioned": [{"screen_name": delta, "user_id": "5920532}], # Brands that were mentioned  
-  "ids_of_missing_tweets": [ ... ], # this is a Tweet that we know was part of the conversation, but whose data was not in the input. empty if all Tweets were in the input  
-  "size_of_conversation": 2, # number of Tweets in the conversation  
-  "tweets": [  
-    { < Tweet payload > }, # if the first Tweet was missing, it is an empy dictionary in the payload  
-    { < Tweet payload > }  
-  ],  
-  "first_brand_response": {  
-   < payload of the Tweet that was the brand's first response in this thread >   
-  },  
-  "brands_tweeting": [{"screen_name": "deltaassist","user_id": "137460929"}],  
-  "time_to_first_brand_response": "00:57:38", # H:M:S that it took the brand to respond to this Tweet  
-  "root_user": {"screen_name": < screen name 1 >,"user_id": < user id 1 >},  
-  "approx_depth": 1, # Depth of the reply chain  
-  "duration_of_conversation": "00:57:38" # (time of the last Tweet) - (time of the first Tweet)  
-}
-`
+
+    {
+      "nonbrands_tweeting": [{"screen_name": < screen name 1 >,"user_id": < user id 1 >}, {"screen_name": < screen name 2 >,"user_id": < user id 2 >}],  
+      "nonbrands_mentioned": [{"screen_name": < screen name 1 >,"user_id": < user id 1 >}], # users who are mentioned in the thread, but are not brands  
+      "time_to_first_response": "00:57:38", # H:M:S that it took for the first person to respond to this Tweet   
+      "brands_mentioned": [{"screen_name": delta, "user_id": "5920532}], # Brands that were mentioned  
+      "ids_of_missing_tweets": [ ... ], # this is a Tweet that we know was part of the conversation, but whose data was not in the input. empty if all Tweets were in the input  
+      "size_of_conversation": 2, # number of Tweets in the conversation  
+      "tweets": [  
+        { < Tweet payload > }, # if the first Tweet was missing, it is an empy dictionary in the payload  
+        { < Tweet payload > }  
+      ],  
+      "first_brand_response": {  
+       < payload of the Tweet that was the brand's first response in this thread >   
+      },  
+      "brands_tweeting": [{"screen_name": "deltaassist","user_id": "137460929"}],  
+      "time_to_first_brand_response": "00:57:38", # H:M:S that it took the brand to respond to this Tweet  
+      "root_user": {"screen_name": < screen name 1 >,"user_id": < user id 1 >},  
+      "approx_depth": 1, # Depth of the reply chain  
+      "duration_of_conversation": "00:57:38" # (time of the last Tweet) - (time of the first Tweet)  
+    }
+
 
 # Usage
 `
