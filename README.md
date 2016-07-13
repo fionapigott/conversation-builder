@@ -3,9 +3,9 @@
 
 Python script to assemble individual Tweets from a public Twitter stream (either Gnip activity-streams format or original Twitter API format) into conversation threads, using the "in reply to" fields of the tweet payload.
 
-Input: Stream of JSON-formatted Tweet payloads, one record per line.
-Input (optional): A CSV of brand handles and user ids, one handle/id pair per line, no quotes. E.g.: notFromShrek,2382763597) 
-Output: Stream of JSON-formatted *conversation* payloads, one record per line. Ordering in the output will be pretty much random.
+Input: Stream of JSON-formatted Tweet payloads, one record per line.  
+Input (optional): A CSV of brand handles and user ids, one handle/id pair per line, no quotes. E.g.: notFromShrek,2382763597)   
+Output: Stream of JSON-formatted *conversation* payloads, one record per line. Ordering in the output will be pretty much random.  
 
 # Output format:
 
@@ -15,9 +15,9 @@ A few notes about the output:
 * All of the output fields that are brand-related will not appear if no --brand_info is provided
 * The only different between activity-streams and original format output is that the "tweets" field will contain Tweet paylaods formatted in the same way as the input.
 
-Output might look like this, when my provided --brand_info was:
-delta,5920532
-deltaassist,137460929
+Output might look like this, when my provided --brand_info was:  
+delta,5920532  
+deltaassist,137460929  
 
 `
 {
@@ -63,7 +63,7 @@ On a server running Ubuntu 14.04, I installed MongoDB following these instuction
 ## Python 3
 If you don't have Python 3, install that first. Among other things, Python 3's default UTF-8 character encoding is important for this usecase.
 Then:
-`pip install ujson`
-`pip install pymongo`
+* `pip install ujson`
+* `pip install pymongo`
 (If you're not working in a PYthon virtual environment, you may have to `sudo pip install`)
 
