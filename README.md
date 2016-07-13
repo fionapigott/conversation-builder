@@ -57,8 +57,8 @@ cat raw_Tweet_data.json | python build_conversations.py --brand_info csv_of_bran
 # Setup
 
 ## MongoDB
-On MacOSX, I was able to install MongoDB with the homebrew package manager (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/). I also had to create a /data/db directoy, with a user:group fiona:staff.
-On a server running Ubuntu 14.04, I installed MongoDB following these instuctions (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/) and it worked right away.
+* On MacOSX, I was able to install MongoDB with the homebrew package manager (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/). I also had to create a /data/db directoy, with a user:group fiona:staff.
+* On a server running Ubuntu 14.04, I installed MongoDB following these instuctions (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/) and it worked right away.
 
 ## Python 3
 If you don't have Python 3, install that first. Among other things, Python 3's default UTF-8 character encoding is important for this usecase.
