@@ -1,4 +1,4 @@
-# Authoer: Fiona Pigott
+# Author: Fiona Pigott
 # Date: July 13, 2016
 # Free to use, no guarantees of anything
 
@@ -6,137 +6,37 @@ import pymongo
 import fileinput
 import ujson
 from find_children import find_children
-from hydration_functions import *
-from snowflake2utc import snowflake2utc
 import sys
 import argparse
 import logging
 import field_getters as fg
+from create_database import create_database
+from get_brand_info import get_brand_info
+import add_metadata
 
 ##################################################################################### Parse args and set up logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--brand_info', default = 'no brands', help='csv of brand screen name and brand id (e.g.: "notFromShrek,5555555")')
-parser.add_argument('--format', default = 'activity-streams', help='choose "activity-streams" or "original", default "activity-streams"')
 parser.add_argument('--max_in_memory_value', type = int, default = 10000, 
     help='maximum number of Tweets to hold in memory at a single time, default 10k')
 parser.add_argument('--log', default = 'build_conversations.log', help='name of log file')
 args = parser.parse_args()
 
-logging.basicConfig(filename=args.log,level=logging.DEBUG, format='%(asctime)s: On line %(lineno)d: %(message)s')
+logging.basicConfig(filename=args.log,level=logging.DEBUG, format='%(asctime)s: In file: %(name)s, On line %(lineno)d: %(message)s')
 logging.debug('###################################################################### ' + 
     'building a new set of conversations')
 
-##################################################################################### The format (activity-streams or original format)
-
-if args.format == "activity-streams":
-  format = True
-  logging.debug('Using the gnip activity-streams data format.')
-else:
-  format = False
-  logging.debug('Using the original (public Twitter API) data format.')
-
-##################################################################################### Get brand information step
-
-brands = []
-if args.brand_info != 'no brands':
-  for line in fileinput.input(args.brand_info):
-      info = line.split(",")
-      brands.append({"screen_name": info[0].strip().lower(), "user_id": info[1].strip()})
-
-logging.debug('The brands are: {}'.format([x["screen_name"] for x in brands]))
-
-##################################################################################### Database creation step
-
-# this is a pymongo thing
-max_write_value = 1000
 # this could change depending on your RAM
 max_in_memory_value = args.max_in_memory_value
 
-# create the database
-client = pymongo.MongoClient()
-tweet_db = client.tweet_database
-tweet_collection = tweet_db.tweet_collection
-#tweet_collection.drop()
-_ = tweet_collection.create_index([('tweet_id', pymongo.ASCENDING)],unique=True)
-_ = tweet_collection.create_index([('reply_id', pymongo.ASCENDING)],unique=False)
-if tweet_collection.count() == 0:
-    logging.debug('Created a database and collection in MongoDB. No Tweets have been added yet.')
-else:
-    logging.warn('WARNING: There are already records in this collection. ' + 
-        'This could have been caused by a previous script exiting before cleaning up.')
-    logging.warn('WARNING: Collection size is: {}'.format(tweet_collection.count()))
+##################################################################################### Get brand information step
 
-# store the records that we will insert
-records = tweet_collection.initialize_unordered_bulk_op()
-# count all of the tweet ids and the duplicate ids
-duplicate_tweet_ids = []
-tweet_ids = set()
-wrote_something = False
-num_records = 0
-log_at = 0
-log_val = 10
-for line in fileinput.input("-"):
-    # get a valid tweet
-    try:
-        tweet = ujson.loads(line)
-        tweet_id = fg.tweet_id(tweet, format) #tweet["id"].split(":")[-1]
-    except (ValueError, KeyError):
-        continue
-    # if this tweet id is in the set of tweet ids we already have, ignore it. 
-    # tweet ids should be unique
-    if tweet_id in tweet_ids:
-        continue
-    else:
-        tweet_ids |= {tweet_id}
-    # now try getting the reply field
-    reply_info = fg.reply_info(tweet, format)
-    # now add the tweet to the current list of records
-    # we can't hold all of the Tweets in memory at a time, so we'll do 10k at a time for now
-    records.insert({"tweet_id": tweet_id,
-                    "user_id": fg.user_id(tweet, format), 
-                    "in_reply_to_id": reply_info["reply_id"],
-                    "in_reply_to_user": reply_info["reply_user"],
-                    "in_reply_to_user_id": reply_info["reply_user_id"],
-                    "tweet_payload": line})
-    num_records += 1
-    # once we have x records, insert the Tweets into the MongoDb database
-    if num_records >= max_write_value:
-        try:
-            records.execute()
-            wrote_something = True
-            if log_at >= log_val:
-                logging.debug('Collection contains {} Tweets. Still writing.'.format(tweet_collection.count()))
-                log_at = 0
-            else:
-                log_at += 1
-        # if we still have a duplicate tweet id running around catch it
-        except pymongo.errors.BulkWriteError as bwe:
-            duplicate_tweet_ids.append(bwe.details["writeErrors"][0]["op"]["tweet_id"]) # debugging
-        # reset the records that we are going to insert    
-        records = tweet_collection.initialize_unordered_bulk_op()
-        num_records = 0
+brands = get_brand_info(args.brand_info)
 
+##################################################################################### Database creation step
 
-# at the end of the loop, insert the remainder of the records
-try:
-    records.execute()
-    wrote_something = True
-    
-# if we still have a duplicate tweet id running around catch it
-except pymongo.errors.BulkWriteError as bwe:
-    duplicate_tweet_ids.append(bwe.details["writeErrors"][0]["op"]["tweet_id"]) # debugging
-    logging.debug('Collection contains {} Tweets. Still writing.'.format(tweet_collection.count()))
-except pymongo.errors.InvalidOperation:
-    if not wrote_something:
-        logging.warn('No Tweets were written to the collection. ' + 
-            'Any Tweets in the collection are left over from some preious process.')
-        logging.warn('Collection contains {} Tweets.'.format(tweet_collection.count()))
-    pass
-
-logging.debug('Collection contains {} Tweets. Done writing'.format(tweet_collection.count()))
-
-del(records)
+client, db_name, tweet_collection = create_database()
 
 ##################################################################################### Graph creation step
 
@@ -220,8 +120,8 @@ for item,shard in list(shards.items()):
             try:
                 # if it is a Tweet in our dataset
                 tweet_dict = id_to_tweet[tweet["tweet_id"]]
-                hydrated_conversation.append({"screen_name": fg.screen_name(tweet_dict, format), 
-                                              "user_id": fg.user_id(tweet_dict, format), 
+                hydrated_conversation.append({"screen_name": fg.screen_name(tweet_dict), 
+                                              "user_id": fg.user_id(tweet_dict), 
                                               "missing": False,
                                               "depth": tweet["depth"],
                                               "in_reply_to": tweet["in_reply_to"],
@@ -234,36 +134,12 @@ for item,shard in list(shards.items()):
                                               "missing": True,
                                               "depth": tweet["depth"],
                                               "id": int(tweet["tweet_id"]),
-                                              "tweet": {}})
-        # make sure that the hydrated conversation is always time-sorted
-        hydrated_conversation.sort(key = lambda x: snowflake2utc(x["id"]))
-        # the metadata step calculates some extra information about Tweets. 
-        # These fields can easily be modified/added to
-        # now calculate some relevant metadata about the conversation
-        conversation_with_metadata = {
-         "tweets": [x["tweet"] for x in hydrated_conversation]
-        }
-        # this is relevant whether or not we have "brands" we care about
-        metadata = {
-         "size_of_conversation": size_of_conversation(hydrated_conversation), 
-         "approx_depth": approx_depth(hydrated_conversation),
-         "root_user": root_user(hydrated_conversation),
-         "time_to_first_response": time_to_first_response(hydrated_conversation),
-         "duration_of_conversation": duration_of_conversation(hydrated_conversation),
-         "ids_of_missing_tweets": ids_of_missing_tweets(hydrated_conversation)
-        }
-        conversation_with_metadata.update(metadata)
-        # this is only relevant if brands were provided
-        if len(brands) > 0:
-            brands_metadata = {
-             "time_to_first_brand_response": time_to_first_brand_response(hydrated_conversation, brands),
-             "first_brand_response": first_brand_response(hydrated_conversation, brands),
-             "brands_tweeting": brands_tweeting(hydrated_conversation, brands),
-             "nonbrands_tweeting": nonbrands_tweeting(hydrated_conversation, brands),
-             "brands_mentioned": brands_mentioned(hydrated_conversation, brands, format),
-             "nonbrands_mentioned": nonbrands_mentioned(hydrated_conversation, brands, format),
-            }
-            conversation_with_metadata.update(brands_metadata)
+                                              "tweet": {"missing_tweet_id": tweet["tweet_id"], 
+                                                        "screen_name": tweet_to_screenname[tweet["tweet_id"]]["screen_name"],
+                                                        "user_id": tweet_to_screenname[tweet["tweet_id"]]["user_id"]}
+                                            })
+        # calculate metadata about the conversation (add_metadata.py)
+        conversation_with_metadata = add_metadata.add_metadata(hydrated_conversation, brands)
         # print the conversation payload
         print(ujson.dumps(conversation_with_metadata))
         #hydrated_conversations.append(conversation_with_metadata) #debugging
@@ -273,7 +149,7 @@ for item,shard in list(shards.items()):
 
 # Close the database
 tweet_collection.drop()
-client.drop_database('tweet_database')
+client.drop_database(db_name)
 client.close()
 
 logging.debug('Cleaned up the database (deleted the database & collection, closed the client)')

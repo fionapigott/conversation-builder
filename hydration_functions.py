@@ -1,4 +1,4 @@
-# Authoer: Fiona Pigott
+# Author: Fiona Pigott
 # Date: July 13, 2016
 # Free to use, no guarantees of anything
 
@@ -23,9 +23,6 @@ e.g.:
 
 Some of these functions expect a "brands" input, which is a list of dictionaries of brands' ids and screen names:
 [ {"screen_name": brand1, "user_id": 11111}, {"screen_name": brand2, "user_id": 22222}, ... ]
-
-And any functions that access the fields of a Tweet need the 'format' arguement, 
-to tell whether is is an activity-streams payload (True) or an original-format payload (False)
 '''
 
 def size_of_conversation(hydrated_conversation):
@@ -152,7 +149,7 @@ def nonbrands_tweeting(hydrated_conversation, brands):
             non_brands_tweeting.append(user)
     return [{"screen_name": x[1], "user_id": x[0]} for x in set(non_brands_tweeting)]
 
-def brands_mentioned(hydrated_conversation, brands, format = True):
+def brands_mentioned(hydrated_conversation, brands):
     '''
     Users in the 'brands' list who are @ mentioned in this thread
     '''
@@ -161,7 +158,7 @@ def brands_mentioned(hydrated_conversation, brands, format = True):
     users_mentioned = []
     for c in hydrated_conversation:
         try:
-            users_mentioned.extend([(x["screen_name"].lower(), x["id_str"]) for x in fg.user_mentions(c["tweet"], format)])
+            users_mentioned.extend([(x["screen_name"].lower(), x["id_str"]) for x in fg.user_mentions(c["tweet"])])
         except KeyError:
             pass
     brands_mentioned = []
@@ -170,7 +167,7 @@ def brands_mentioned(hydrated_conversation, brands, format = True):
             brands_mentioned.append(user)
     return [{"screen_name": x[0], "user_id": x[1]} for x in set(brands_mentioned)]
 
-def nonbrands_mentioned(hydrated_conversation, brands, format = True):
+def nonbrands_mentioned(hydrated_conversation, brands):
     '''
     Users not in the 'brands' list who are @ mentioned in this thread
     '''
@@ -179,7 +176,7 @@ def nonbrands_mentioned(hydrated_conversation, brands, format = True):
     users_mentioned = []
     for c in hydrated_conversation:
         try:
-            users_mentioned.extend([(x["screen_name"].lower(), x["id_str"]) for x in fg.user_mentions(c["tweet"], format)])
+            users_mentioned.extend([(x["screen_name"].lower(), x["id_str"]) for x in fg.user_mentions(c["tweet"])])
         except KeyError:
             pass
     non_brands_mentioned = []
@@ -193,3 +190,9 @@ def ids_of_missing_tweets(hydrated_conversation):
     Ids of the Tweets that appeared in the inREplyTo fields of other Tweets in the dataset, but were not present in the dataset
     '''
     return [x["id"] for x in hydrated_conversation if x["missing"]]
+
+def depths(hydrated_conversation):
+    '''
+    List of depths, same order as the tweets list
+    '''
+    return [x["depth"] for x in hydrated_conversation]
