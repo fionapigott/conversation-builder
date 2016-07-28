@@ -17,7 +17,7 @@ import add_metadata
 ##################################################################################### Parse args and set up logging
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--brand_info', default = 'no brands', help='csv of brand screen name and brand id (e.g.: "notFromShrek,5555555")')
+parser.add_argument('--brand_info', default = None, help='csv of brand screen name and brand id (e.g.: "notFromShrek,5555555")')
 parser.add_argument('--max_in_memory_value', type = int, default = 10000, 
     help='maximum number of Tweets to hold in memory at a single time, default 10k')
 parser.add_argument('--log', default = 'build_conversations.log', help='name of log file')
