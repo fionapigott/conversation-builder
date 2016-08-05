@@ -12,7 +12,7 @@ import field_getters as fg
 
 ##################################################################################### Database creation step
 
-def create_database(filename = "-", db_name = "tweet_database"):
+def create_database(filename = "-", db_name = "tweet_database", drop_if_nonempty = True):
 
     # get the logger
     logging.getLogger("root")
@@ -35,6 +35,13 @@ def create_database(filename = "-", db_name = "tweet_database"):
         logging.warn('WARNING: There are already records in this collection. ' + 
             'This could have been caused by a previous script exiting before cleaning up.')
         logging.warn('WARNING: Collection size is: {}'.format(tweet_collection.count()))
+        if drop_if_nonempty:
+            logging.warn("WARNING: All previous contents of the database are being cleared" + 
+                " if this was not the expected behaviour, try again with 'drop_if_nonempty = False")
+            tweet_collection.drop()
+            _ = tweet_collection.create_index([('tweet_id', pymongo.ASCENDING)],unique=True)
+            _ = tweet_collection.create_index([('reply_id', pymongo.ASCENDING)],unique=False)
+            logging.warn("The size of the database is: {}".format(tweet_collection.count()))
 
     # store the records that we will insert
     records = tweet_collection.initialize_unordered_bulk_op()
@@ -81,6 +88,7 @@ def create_database(filename = "-", db_name = "tweet_database"):
                     log_at += 1
             # if we still have a duplicate tweet id running around catch it
             except pymongo.errors.BulkWriteError as bwe:
+                logging.debug(bwe.details["writeErrors"])
                 pass
                 #duplicate_tweet_ids.append(bwe.details["writeErrors"][0]["op"]["tweet_id"]) # debugging
             # reset the records that we are going to insert    
