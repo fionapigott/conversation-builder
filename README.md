@@ -81,7 +81,7 @@ cat raw_Tweet_data.json | python build_conversations.py --brand_info csv_of_bran
 
 # Setup
 
-## MongoDB
+## MongoDB (must be 2.7 or higher for any dataset over ~100k Tweets. This is tested on version 3.2)
 * On MacOSX, I was able to install MongoDB with the homebrew package manager (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/). I also had to create a /data/db directoy, with a user:group fiona:staff.
 * On a server running Ubuntu 14.04, I installed MongoDB following these instuctions (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/) and it worked right away.
 
@@ -118,6 +118,7 @@ Use this to add enrichments to the conversation payload. Will overwrite existing
 I've added a second script to add "missing" (Tweets that were not in the original dataset) back into the conversation paylaods called "add_missing_tweets.py"
 
 This code depends on you having set up access to the Twitter Public API, so do that first (look up twurl for some instructions). I'm going to use the default .twurlrc setup for a credentials file. If you already have a .twurlrc, it should work. Otherwise, create one. It should look like this:
+
     --- 
     configuration: 
       default_profile: 
@@ -133,6 +134,7 @@ This code depends on you having set up access to the Twitter Public API, so do t
           consumer_key: < CONSUMER KEY >
 
 The output is the same format as the conversation payloads above, with the addition of:
+
     {  
         "recovered_tweets": # list of Tweets ids from Tweets that were successfully returned by the API  
         "new_missing_tweets": # list of Tweets that we now know are missing, because the recovered Tweets were a reply to them (this script does not try to recover multiple levels of Tweet replies)  
