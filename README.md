@@ -34,12 +34,11 @@ A few notes about the output:
 * All of the enrichment output fields that are brand-related will not appear if no --brand_info is provided
 * The only different between activity-streams and original format output is that the "tweets" field will contain Tweet paylaods formatted in the same way as the input.
 
-Output might look like this, when my provided --brand_info was:  
+Output might look like this, if I use the --add_enrichemnts option and provide --brand_info:  
 delta,5920532  
-deltaassist,137460929  
+deltaassist,137460929
 
-And using the --add_enrichments option
-
+Note that the --brand_info option won't do anything without the --add_enrichments option
 
     {
       "tweets": [  
