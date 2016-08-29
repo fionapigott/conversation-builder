@@ -70,9 +70,10 @@ def make_twitter_api_call(tweets_to_query, request_times, window, possible_reque
     current_time = datetime.datetime.now()
     # get the number of requests in the current window
     num_requests_in_window = sum([1 for x in request_times if (current_time - x) < window]) 
+    #logging.debug("Request times list: {}".format(request_times))
     # sleep, if necessary
-    if num_requests_in_window > possible_requests_per_window:
-        seconds_to_sleep = (window - (current_time - request_times[-possible_requests_per_window])).seconds + 5
+    if num_requests_in_window >= possible_requests_per_window:
+        seconds_to_sleep = (window - (current_time - request_times[-(possible_requests_per_window-1)])).seconds + 5
         logging.debug("To avoid hitting the rate limit, sleeping for {} seconds".format(seconds_to_sleep))
         time.sleep(seconds_to_sleep)
     # get the current time and make a request
@@ -82,20 +83,43 @@ def make_twitter_api_call(tweets_to_query, request_times, window, possible_reque
     num_requests_in_window = sum([1 for x in request_times if (current_time - x) < window])
     # make the request
     logging.debug("Sending a request to the Twitter Public API for {} Tweets".format(len(tweets_to_query)))
-    recovered_tweets_request = requests.post('https://api.twitter.com/1.1/statuses/lookup.json?id=' + ",".join(tweets_to_query), 
+    recovered_tweets_request = requests.post('https://api.twitter.com/1.1/statuses/lookup.json?id=' +
+        ",".join(tweets_to_query), 
         auth = auth, headers = {'Content-Type': 'application/json'})
     recovered_tweets = recovered_tweets_request.json()
+    # check to be sure we didn't get any errors
+    # log errors if we did hit them, wait around if we hit a rate limit
+    # debugging: print(ujson.dumps(recovered_tweets))
+    if "errors" in recovered_tweets:
+        for error in recovered_tweets["errors"]:
+            logging.debug("message: {}, code {}".format(error["message"], error["code"]))
+            if error["message"] == "Rate limit exceeded":
+                # if somehow we did hit the rate limit
+                logging.warn("We hit the rate limit (something must be wrong) but we'll try to get through it.")
+                logging.warn("Pausing for 15 minutes.")
+                time.sleep(15*60 + 5)
+                recovered_tweets_request = requests.post('https://api.twitter.com/1.1/statuses/lookup.json?id=' +
+                    ",".join(tweets_to_query), 
+                    auth = auth, headers = {'Content-Type': 'application/json'})
+                current_time = datetime.datetime.now()
+                request_times.append(current_time)
+        recovered_tweets = recovered_tweets_request.json()
     logging.debug("Completed a call to the Twitter Public API, {} Tweets were returned".format(len(recovered_tweets)))
     # Return the Tweets in a dictionary keyed by Tweet ID
-    recovered_tweets_dict = {x["id_str"]: x for x in recovered_tweets}
+    try:
+        recovered_tweets_dict = {x["id_str"]: x for x in recovered_tweets}
+    except TypeError:
+        logging.error("ERROR Encountered an API error we can't deal with")
+        logging.error("ERROR API Response paylaod: {}".format(ujson.dumps(recovered_tweets)))
     return recovered_tweets_dict
 
-def collect_missing_tweets(filename = "-", max_convos_in_memory = 1000, tweets_per_call = 100):#, request_times = [], credentials = '.twurlrc'):
+def collect_missing_tweets(filename = "-", max_convos_in_memory = 1000, tweets_per_call = 100):
     '''
     Iterator to batch missing Tweets into sets of 100 to make efficient API calls.
 
     Takes a file (or simple stdin, which is default) of conversation payloads, parses out the missing_tweet_id(s) 
-    and yields a list of Tweets to query (up to 100 Tweets) and a list of conversations from which those Tweets are missing.
+    and yields a list of Tweets to query (up to 100 Tweets) 
+    and a list of conversations from which those Tweets are missing.
 
     These lists can then be used to call the Twitter API and insert the missing Tweets into the conversations.
 
@@ -117,19 +141,22 @@ def collect_missing_tweets(filename = "-", max_convos_in_memory = 1000, tweets_p
         missing_tweets = [x["missing_tweet_id"] for x in conversation_payload["tweets"] if "missing_tweet_id" in x]
         # If there are no missing Tweets, pass this conversation through and move on
         if len(missing_tweets) == 0:
-            #convos_in_memory.append(conversation_payload)
             yield(([],[conversation_payload]))
         # If we don't yet have 100 Tweets to query, or there aren't too many convos in memory
         # add these to the total and move on
-        elif (len(missing_tweets) + len(tweets_to_query) < tweets_per_call) and (len(convos_in_memory) < max_convos_in_memory):
+        elif (len(missing_tweets)+len(tweets_to_query)<=tweets_per_call) and (len(convos_in_memory)<max_convos_in_memory):
+            # extend the tweets to query
             tweets_to_query.extend(missing_tweets)
             convos_in_memory.append(conversation_payload)
         else:
+            # query the Tweets, carry over the current convo for next time
             yield((tweets_to_query, convos_in_memory))
-            tweets_to_query = []
-            conversations_in_memory = []
+            logging.debug("Yielding {} Tweets to query missing Tweets".format(len(tweets_to_query)))
+            tweets_to_query = missing_tweets
+            convos_in_memory = [conversation_payload]
     # once you get to the end and have a remainder
     if len(convos_in_memory) > 0:
+        logging.debug("Yielding {} Tweets to query missing Tweets at the end of the loop".format(len(tweets_to_query)))
         yield((tweets_to_query, convos_in_memory)) 
 
         
@@ -160,7 +187,8 @@ def insert_missing_tweets(conversations_in_memory, recovered_tweets_dict):
     for conversation_payload in conversations_in_memory:
         # fields that may need updating
         tweets = []
-        ids_to_depths_dict = dict(zip([fg.tweet_id(x) for x in conversation_payload["tweets"]], conversation_payload["depths"]))
+        ids_to_depths_dict = dict(zip([fg.tweet_id(x) for x in conversation_payload["tweets"]], 
+            conversation_payload["depths"]))
         new_missing_tweets = []
         recovered_tweets_ids = []
         unrecoverable_tweets = []
@@ -235,14 +263,17 @@ if __name__ == '__main__':
         tweets_to_query = []
         for line in fileinput.input(args.tweet_ids):
             if len(tweets_to_query) < 100:
-                tweets_to_query.append(line)
+                tweets_to_query.append(line.strip())
             else:
-                recovered_tweets_dict = make_twitter_api_call(tweets_to_query, request_times, window, possible_requests_per_window, auth)
+                tweets_to_query.append(line.strip())
+                recovered_tweets_dict = make_twitter_api_call(tweets_to_query, request_times, 
+                    window, possible_requests_per_window, auth)
                 tweets_to_query = []
                 for tweet in recovered_tweets_dict.values():
                     print(ujson.dumps(tweet))
         if len(tweets_to_query) > 0:
-            recovered_tweets_dict = make_twitter_api_call(tweets_to_query, request_times, window, possible_requests_per_window, auth)
+            recovered_tweets_dict = make_twitter_api_call(tweets_to_query, request_times, 
+                window, possible_requests_per_window, auth)
             tweets_to_query = []
             for tweet in recovered_tweets_dict.values():
                 print(ujson.dumps(tweet))
@@ -257,9 +288,11 @@ if __name__ == '__main__':
             else:
                 do_brand_enrichments = False
 
-        for tweets_to_query,convos in collect_missing_tweets(filename = "-", max_convos_in_memory = 10000,tweets_per_call = 100):
+        for tweets_to_query,convos in collect_missing_tweets(filename = "-", 
+                    max_convos_in_memory = 10000, tweets_per_call = 100):
             # get the Tweets
-            recovered_tweets_dict = make_twitter_api_call(tweets_to_query, request_times, window, possible_requests_per_window, auth)
+            recovered_tweets_dict = make_twitter_api_call(tweets_to_query, request_times, 
+                    window, possible_requests_per_window, auth)
             # insert the Tweets into the conversations
             for conversation_payload in insert_missing_tweets(convos, recovered_tweets_dict):
                 # optionally update enrichments in the conversation payload
@@ -269,12 +302,5 @@ if __name__ == '__main__':
                     if do_brand_enrichments:
                         conversation_payload = add_enrichments.add_brand_enrichments(conversation_payload, brands)
                 print(ujson.dumps(conversation_payload))
-
-
-
-
-
-
-
 
 
