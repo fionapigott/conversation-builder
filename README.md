@@ -30,7 +30,7 @@ This package contains three stand-alone functions to create and "enrich" Tweet c
 ## Output format:
 
 A few notes about the output:
-* User screen names are all converted to lower case. The only case where there are capital letters in the "screen_name field and "
+* User screen names are all converted to lower case for matching/analysis purposes. The only case where there are capital letters in the "screen_name"/"preferredUsername" field are in the original Tweet payloads.
 * Tweets can be "missing" if a Tweet appears in an "in reply to" field, but not in the input dataset. In this case, we take the Tweet ID, user screen name, and the user id (user id of the user being replied to is only available in the original format). If Tweets are unavalible in the dataset, some fields will be undefined.
 * All of the enrichment output fields that are brand-related will not appear if no --brand_info is provided
 * The only different between activity-streams and original format output is that the "tweets" field will contain Tweet paylaods formatted in the same way as the input.
