@@ -70,7 +70,7 @@ Note that the --brand_info option won't do anything without the --add_enrichment
 Remember to start the MongoDB daemon by running `mongod`.
 
 `
-cat raw_Tweet_data.json | python build_conversations.py --brand_info csv_of_brand_Twitter_handles_and_ids.csv --format activity-streams --log build_conversations.log > conversation_threads.json 
+cat raw_Tweet_data.json | python build_conversations.py --add_enrichments --brand_info csv_of_brand_Twitter_handles_and_ids.csv > conversation_threads.json 
 `
 
 ## Requirements:
