@@ -1,9 +1,9 @@
 # Conversation builder for Tweet data
 ## Fiona Pigott
 
-Python script to assemble individual Tweets from a public Twitter stream (either Gnip activity-streams format or original Twitter API format) into conversation threads, using the "in reply to" fields of the tweet payload.
+Python script to assemble individual Tweets from a public Twitter stream (either Gnip activity-streams format or original Twitter API format) into conversation threads, using the "in reply to" fields of the tweet payload. 
 
-This is still in active development, so bugs are very possible.
+Note that the code can handle a mix of Tweets in the Gnip Activity Streams and Public API formats, which it does by specifying field getters (field_getters.py) for any Tweet payload fields that are relevant to the output.
 
 This package contains three stand-alone functions to create and "enrich" Tweet conversations and format them as "conversation payloads", where a "conversation payload" looks like:
 
@@ -19,6 +19,7 @@ This package contains three stand-alone functions to create and "enrich" Tweet c
 - build_conversations.py: Takes JSON formatted Tweet payloads, returns conversation payloads, optionally returns enriched conversation payloads with the --add_enrichments and --brand_info command line arguments 
 - add_enrichments.py: Takes JSON formatted conversation payloads (with the "tweets" and "depths" fields at least) and adds enrichment fields. If you want to change the behaviour or types of enrichments, do it here, as this function is imported and runs when other code uses the --add_enrichments option
 - add_missing_tweets.py: Takes JSON formatted conversation payloads (with the "tweets" and "depths" fields at least) and calls the Twitter public API to get the Tweets that were missing from the original dataset. Returns conversation payloads with added Tweets and a few extra fields about which Tweets were successfully returned from the API. Optionally enriches or updates enrichment fields with the --add_enrichments option
+- make_twitter_api_call.py: Takes Tweet IDs as an input and returns Tweets from the public Twitter API  (where available). Helper function for add_missing_tweets.py, broken out because sometimes calling the API alone can be useful.
 
 # build_conversations.py
 
@@ -79,13 +80,13 @@ cat raw_Tweet_data.json | python build_conversations.py --brand_info csv_of_bran
 * MongoDB
 * PyMongo (Python package for interfacing with MongoBD)
 
-# Setup
+## Setup
 
-## MongoDB (must be 2.7 or higher for any dataset over ~100k Tweets. This is tested on version 3.2)
+### MongoDB (must be 2.7 or higher for any dataset over ~100k Tweets. This is tested on version 3.2)
 * On MacOSX, I was able to install MongoDB with the homebrew package manager (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/). I also had to create a /data/db directoy, with a user:group fiona:staff.
 * On a server running Ubuntu 14.04, I installed MongoDB following these instuctions (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/) and it worked right away.
 
-## Python 3
+### Python 3
 If you don't have Python 3, install that first. Among other things, Python 3's default UTF-8 character encoding is important for this usecase.
 Then:
 * `pip install ujson`
@@ -104,16 +105,16 @@ The result of `pip freeze` for me is:
 
 Use this to add enrichments to the conversation payload. Will overwrite existing keys in the dictioary, will not delete keys that it is not overwriting. If you are building conversations and adding enrichments in one step, it is more efficient to use the build_conversations.py script with the --add_enrichments options (avoiding an extra JSON deserialization/serialization step).   
 
+ If you want to add your own conversation payload enrichments, you should specify some functions my_enrichments.py (anything) which are format agnostic, and either use the provided field getters or provide your own field getters for relevant fields. Then import my_enrichments.py into add_enrichments.py and specify the payload element to add enrichments to.  
+
 # add_missing_tweets.py
 
-## Adding data from the public API:
+## For adding data from the public API:
 
 ### Requirements:
 * requests
 * requests_oauthlib
 * pyyaml 
-
-## add_missing_tweets.py
 
 I've added a second script to add "missing" (Tweets that were not in the original dataset) back into the conversation paylaods called "add_missing_tweets.py"
 
@@ -145,20 +146,26 @@ Also, the "depth" of a recovered or newly missing Tweet is the depth of the Twee
 
 The best way to get a complete graph structure is to pull data for missing Tweets, add them to your original dataset, and run the build_conversations.py script again, but sometimes that isn't feasible. This is a good, computationally cheaper solution.  
 
-If you do want to simpy get raw Tweet data from the public API, I have an option --raw_data_only, which changes the behavior of the script to expecting raw Tweet IDs (unquoted Tweet IDs from stdin or from a file provided by --tweet_ids) and prints out the API response as a JSON payload.   
+# make_twitter_api_call.py
+
+If you do want to simpy get raw Tweet data from the public API, use this script. It expects raw Tweet IDs (unquoted Tweet IDs from stdin or from a file provided by --tweet_ids) and prints out the API response as a JSON payload.
 
 # Running the code
 
 You can run this code as a pipeline in several different ways:
 
-## To simply group Tweets into conversations:   
+### To simply group Tweets into conversations:   
 `cat some_Tweet_data.json | python build_conversations.py > conversation_output.json`  
-## To group Tweets into conversations and add enrichments:   
+### To group Tweets into conversations and add enrichments:   
 `cat some_Tweet_data.json | python build_conversations.py --add_enrichments --brand_info csv_of_info_about_brands.csv >  enriched_conversation_output.json`  
-## To add or update enrichments in some existing conversation payloads:   
-`cat conversation_output.json | python add_enrichments.py --brand_info csv_of_info_about_brands.csv >  enriched_conversation_output.json`  
-## To build conversation payloads, add back missing Tweets, then enrich data:
+### To add or update enrichments in some existing conversation payloads:   
+`cat conversation_output.json | python add_enrichments.py --brand_info csv_of_info_about_brands.csv >  enriched_conversation_output.json`
+### To build conversation payloads, add back missing Tweets, then enrich data:
 `cat some_Tweet_data.json | python build_conversations.py | python add_missing_tweets.py --add_enrichments --brand_info csv_of_info_about_brands.csv >  enriched_conversation_output_with_missing_tweets.json` 
+### To hit the Twitter Public API for Tweet data:
+`cat some_Tweet_ids.txt | python make_twitter_api_call.py > some_recovered_Tweet_payloads.json`
+### To build conversations with the recovered data:
+`cat some_recovered_Tweet_payloads.json | python build_conversations.py > conversation_output.json`
 
 
 
